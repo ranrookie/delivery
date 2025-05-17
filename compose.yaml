@@ -3,7 +3,7 @@ version: "3.8"
 services:
   mysql:
     build: ./sql
-    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:mysql
+    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:mysql1.0
     container_name: mysql_container
     restart: always
     environment:
@@ -19,7 +19,7 @@ services:
       - delivery
   redis:
     build: ./redis
-    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:redis
+    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:redis1.0
     container_name: redis_container
     restart: always
     environment:
@@ -32,7 +32,7 @@ services:
       - delivery
   backend:
     build: ./backend
-    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:backend
+    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:backend1.0
     container_name: backend_container
     depends_on:
       - mysql
@@ -58,7 +58,7 @@ services:
 
   frontend:
     build: ./frontend
-    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:frontend
+    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:frontend1.0
     container_name: frontend_container
     depends_on:
       - backend

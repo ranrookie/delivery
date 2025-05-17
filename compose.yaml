@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  mysql:
+    build: ./sql
+    container_name: mysql_container
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - delivery
+
+  backend:
+    build: ./backend
+    container_name: backend_container
+    depends_on:
+      - mysql
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DB: ${MYSQL_DB}
+      BACKEND_MYSQL_USER: ${BACKEND_MYSQL_USER}
+      BACKEND_MYSQL_PASSWORD: ${BACKEND_MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: ${REDIS_DB}
+      ALI_OSS_ENDPOINT: ${ALI_OSS_ENDPOINT}
+      ALI_OSS_KEY_ID: ${ALI_OSS_KEY_ID}
+      ALI_OSS_SECRET: ${ALI_OSS_SECRET}
+      ALI_OSS_BUCKET: ${ALI_OSS_BUCKET}
+      WECHAT_APPID: ${WECHAT_APPID}
+      WECHAT_SECRET: ${WECHAT_SECRET}
+    networks:
+      - delivery
+
+  frontend:
+    build: ./frontend
+    container_name: frontend_container
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - delivery
+
+networks:
+  delivery:
+    driver: bridge
+
+volumes:
+  mysql-data:

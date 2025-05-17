@@ -1,0 +1,11 @@
+.env
+.env.example
+.gitignore
+compose.yaml
+**/dockerfile
+**/.idea
+*.iml
+**/.vscode
+**/target
+**/application-dev.yml
+**/test

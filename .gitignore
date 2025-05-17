@@ -1,0 +1,7 @@
+.env
+**/.idea
+*.iml
+**/.vscode
+**/target
+**/application-dev.yml
+**/test

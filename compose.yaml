@@ -30,11 +30,13 @@ services:
       - delivery
   backend:
     build: ./backend
-    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:backend1.0
+    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:backend1.1
     container_name: backend_container
     depends_on:
       - mysql
       - redis
+    ports:
+      - "8080:8080"
     environment:
       MYSQL_HOST: ${MYSQL_HOST}
       MYSQL_PORT: ${MYSQL_PORT}
@@ -45,6 +47,8 @@ services:
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_DB: ${REDIS_DB}
+      ADMIN_SECRET_KEY: ${ADMIN_SECRET_KEY}
+      USER_SECRET_KEY: ${USER_SECRET_KEY}
       ALI_OSS_ENDPOINT: ${ALI_OSS_ENDPOINT}
       ALI_OSS_KEY_ID: ${ALI_OSS_KEY_ID}
       ALI_OSS_SECRET: ${ALI_OSS_SECRET}
@@ -56,12 +60,15 @@ services:
 
   frontend:
     build: ./frontend
-    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:frontend1.0
+    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:frontend1.1
     container_name: frontend_container
     depends_on:
       - backend
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - delivery
 

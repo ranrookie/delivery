@@ -1422,7 +1422,7 @@
               value: function () {
                 var e = this,
                   t = Math.random().toString(36).substr(2),
-                  n = "ws://123.56.43.94:80/ws/" + t;
+                  n = "wss://shrdelivery.xyz/ws/" + t;
                 console.log(n, "socketUrl"),
                   "undefined" == typeof WebSocket
                     ? e.$notify({

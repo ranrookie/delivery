@@ -13,6 +13,7 @@ services:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+      - /etc/localtime:/etc/localtime:ro #挂载服务器的时间文件，避免因时区问题产生的bug
     networks:
       - delivery
   redis:
@@ -26,6 +27,7 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
+      - /etc/localtime:/etc/localtime:ro
     networks:
       - delivery
   backend:
@@ -55,6 +57,8 @@ services:
       ALI_OSS_BUCKET: ${ALI_OSS_BUCKET}
       WECHAT_APPID: ${WECHAT_APPID}
       WECHAT_SECRET: ${WECHAT_SECRET}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     networks:
       - delivery
 
@@ -68,7 +72,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro #挂载https证书，使用https加密传输
+      - /etc/localtime:/etc/localtime:ro
     networks:
       - delivery
 

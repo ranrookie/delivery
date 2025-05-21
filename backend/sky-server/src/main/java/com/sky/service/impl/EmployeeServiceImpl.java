@@ -17,15 +17,10 @@ import com.sky.exception.PasswordErrorException;
 import com.sky.mapper.EmployeeMapper;
 import com.sky.result.PageResult;
 import com.sky.service.EmployeeService;
-import org.apache.commons.codec.cli.Digest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
-import sun.security.util.Password;
-
-import java.awt.print.PageFormat;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service

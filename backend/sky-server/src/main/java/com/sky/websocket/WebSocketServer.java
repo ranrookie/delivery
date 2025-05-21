@@ -1,10 +1,8 @@
 package com.sky.websocket;
 
 import org.springframework.stereotype.Component;
-import javax.websocket.OnClose;
-import javax.websocket.OnMessage;
-import javax.websocket.OnOpen;
-import javax.websocket.Session;
+
+import javax.websocket.*;
 import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
 import java.util.Collection;
@@ -30,6 +28,15 @@ public class WebSocketServer {
         sessionMap.put(sid, session);
     }
 
+    /**
+     * @param session
+     * @param error
+     */
+    @OnError
+    public void onError(Session session, Throwable error) {
+        System.err.println("WebSocket错误：" + error.getMessage());
+        error.printStackTrace();
+    }
     /**
      * 收到客户端消息后调用的方法
      *

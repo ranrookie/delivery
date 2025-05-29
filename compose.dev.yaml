@@ -3,7 +3,7 @@ services:
     build: 
       context: ./frontend
       target: dev-stage
-    image: mydelivery:frontend_dev1.1
+    image: mydelivery:frontend_dev
     container_name: frontend_container
     ports:
       - "80:80"

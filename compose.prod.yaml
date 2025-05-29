@@ -1,7 +1,7 @@
 services:
   backend:
     build: ./backend
-    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:backend1.1
+    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:backend
     container_name: backend_container
     depends_on:
       - mysql
@@ -33,7 +33,7 @@ services:
 
   frontend:
     build: ./frontend
-    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:frontend1.1
+    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:frontend
     container_name: frontend_container
     depends_on:
       - backend

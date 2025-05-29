@@ -1,7 +1,7 @@
 services:
   mysql:
     build: ./sql
-    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:mysql1.0
+    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:mysql
     container_name: mysql_container
     restart: always
     environment:
@@ -18,7 +18,7 @@ services:
       - delivery
   redis:
     build: ./redis
-    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:redis1.0
+    image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:redis
     container_name: redis_container
     restart: always
     environment:

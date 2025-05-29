@@ -1,8 +1,11 @@
-# Step 1: Use Nginx base image
-FROM nginx:alpine
-# Step 2: Copy custom Nginx configuration file
-COPY nginx.conf /etc/nginx/nginx.conf
-# Step 3: Copy the built static files to Nginx's default directory
+FROM nginx:alpine AS dev-stage
+COPY nginx.dev.conf /etc/nginx/nginx.conf
 COPY html/ /usr/share/nginx/html/
-# Expose port 80
 EXPOSE 80
+
+
+FROM nginx:alpine AS prod-stage
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY html/ /usr/share/nginx/html/
+EXPOSE 80
+EXPOSE 443

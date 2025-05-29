@@ -16,6 +16,14 @@
                ,#{deliveryStatus},#{deliveryTime},#{packAmount},#{tablewareNumber}
                ,#{tablewareStatus})
     </insert>
+
+    <select id="queryOrdersByIdSet" resultType="com.sky.entity.Orders">
+        select * from orders where id in
+        <foreach collection="idSet" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </select>
+
     <select id="pageQuery" resultType="com.sky.entity.Orders">
         select * from orders
         <where>

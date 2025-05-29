@@ -1,0 +1,45 @@
+name: Build and Deploy to Aliyun
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Log in to Aliyun ACR
+        run: echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login ${{ secrets.ALIYUN_REGISTRY }} -u ${{ secrets.ALIYUN_USERNAME }} --password-stdin
+
+      - name: Build Docker Image
+        run: |
+          docker compose -f compose.yaml -f compose.prod.yaml build
+
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.ALIYUN_REGISTRY }}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}/frontend
+          docker push ${{ secrets.ALIYUN_REGISTRY }}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}/backend
+          docker push ${{ secrets.ALIYUN_REGISTRY }}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}/mysql
+          docker push ${{ secrets.ALIYUN_REGISTRY }}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}/redis
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Prepare SSH key
+        run: |
+          echo "${{ secrets.SSH_KEY }}" > private_key
+          chmod 600 private_key
+
+      - name: Deploy to Server
+        run: |
+          ssh -i private_key -o StrictHostKeyChecking=no -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd delivery
+            cdocker compose -f compose.yaml -f compose.prod.yaml --env-file .env up
+          EOF

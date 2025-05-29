@@ -3,11 +3,9 @@ package com.sky.controller.admin;
 import com.sky.dto.DishDTO;
 import com.sky.dto.DishPageQueryDTO;
 import com.sky.entity.Dish;
-import com.sky.entity.DishFlavor;
 import com.sky.result.PageResult;
 import com.sky.result.Result;
 import com.sky.service.DishService;
-import com.sky.service.impl.DishServicelmpl;
 import com.sky.vo.DishVO;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -25,14 +23,18 @@ import java.util.Set;
 @Api(tags = "菜品相关接口")
 @Slf4j
 public class DishController {
+    private final DishService dishService;
+    private final RedisTemplate<String,Object> jdkRedisTemplate;
+
     @Autowired
-    private DishService dishService;
-    @Autowired
-    private RedisTemplate redisTemplate;
+    public DishController(DishService dishService, RedisTemplate<String,Object> jdkRedisTemplate) {
+        this.dishService = dishService;
+        this.jdkRedisTemplate = jdkRedisTemplate;
+    }
     /**
      * 添加菜品
-     * @param dishDTO
-     * @return
+     * @param dishDTO 前端传入菜品数据
+     * @return Result.success
      */
     @PostMapping
     @ApiOperation("添加菜品")
@@ -44,8 +46,8 @@ public class DishController {
 
     /**
      * 菜品分页查询
-     * @param dishPageQueryDTO
-     * @return
+     * @param dishPageQueryDTO 传入查询条件
+     * @return Result.success(pageResult)
      */
     @GetMapping("/page")
     @ApiOperation("菜品分页查询")
@@ -57,8 +59,8 @@ public class DishController {
 
     /**
      * 删除菜品
-     * @param ids
-     * @return
+     * @param ids 传入删除菜品id数组
+     * @return Result.success()
      */
     @DeleteMapping
     @ApiOperation("菜品批量删除")
@@ -71,8 +73,8 @@ public class DishController {
 
     /**
      * 根据id查询菜品
-     * @param id
-     * @return
+     * @param id 菜品id
+     * @return Result.success(dishVO)
      */
     @GetMapping("/{id}")
     @ApiOperation("根据id查询菜品")
@@ -84,8 +86,8 @@ public class DishController {
 
     /**
      * 修改菜品
-     * @param dishDTO
-     * @return
+     * @param dishDTO 修改的具体数据
+     * @return Result.success()
      */
     @PutMapping
     @ApiOperation("修改菜品")
@@ -98,9 +100,9 @@ public class DishController {
 
     /**
      * 菜品起售停售
-     * @param status
-     * @param id
-     * @return
+     * @param status 菜品状态
+     * @param id 菜品id
+     * @return Result.success()
      */
     @PostMapping("/status/{status}")
     @ApiOperation("菜品起售,停售")
@@ -110,6 +112,13 @@ public class DishController {
         cleanCache("dish_*");
         return Result.success();
     }
+
+    /**
+     * 根据分类id查询菜品
+     * @param categoryId 菜品类别id
+     * @return Result.success(dishes)
+     */
+
     @GetMapping("/list")
     @ApiOperation("根据分类id查询菜品")
     public Result<List<Dish>> queryDishByCategoryId(@RequestParam Long categoryId) {
@@ -117,8 +126,16 @@ public class DishController {
         List<Dish> dishes = dishService.queryDishByCategoryId(categoryId);
         return Result.success(dishes);
     }
+
+    /**
+     * 一个清除redis菜品缓存的复用函数
+     * @param pattern 需要匹配的key
+     */
+    @SuppressWarnings("all")
     private void cleanCache(String pattern){
-        Set keys = redisTemplate.keys(pattern);
-        redisTemplate.delete(keys);
+        Set<String> keys = jdkRedisTemplate.keys(pattern);
+        if(keys!=null){
+            jdkRedisTemplate.delete(keys);
+        }
     }
 }

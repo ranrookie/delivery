@@ -20,21 +20,27 @@ import java.util.List;
 @Slf4j
 @Api(tags = "C端-菜品浏览接口")
 public class DishController {
+    private final DishService dishService;
+    private final RedisTemplate<String,Object> jdkRedisTemplate;
+
     @Autowired
-    private DishService dishService;
-    @Autowired
-    private RedisTemplate redisTemplate;
+    public DishController(DishService dishService, RedisTemplate<String,Object> jdkRedisTemplate) {
+        this.dishService = dishService;
+        this.jdkRedisTemplate = jdkRedisTemplate;
+    }
+
     /**
      * 根据分类id查询菜品
      *
-     * @param categoryId
-     * @return
+     * @param categoryId 菜品分类id
+     * @return Result.success(list)
      */
     @GetMapping("/list")
     @ApiOperation("根据分类id查询菜品")
     public Result<List<DishVO>> list(Long categoryId) {
         String key = "dish_" + categoryId;
-        List<DishVO> list1 = (List<DishVO>)redisTemplate.opsForValue().get(key);
+        @SuppressWarnings("unchecked")
+        List<DishVO> list1 = (List<DishVO>)jdkRedisTemplate.opsForValue().get(key);
         if(list1 != null&&!list1.isEmpty()){
             return Result.success(list1);
         }
@@ -43,7 +49,7 @@ public class DishController {
         dish.setStatus(StatusConstant.ENABLE);//查询起售中的菜品
 
         List<DishVO> list = dishService.listWithFlavor(dish);
-        redisTemplate.opsForValue().set(key,list);
+        jdkRedisTemplate.opsForValue().set(key,list);
         return Result.success(list);
     }
 

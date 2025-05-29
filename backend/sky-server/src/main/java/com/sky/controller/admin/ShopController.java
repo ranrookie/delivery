@@ -14,31 +14,38 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class ShopController {
     public static final String KEY = "SHOP_STATUS";
+
+    private final RedisTemplate<String,Object> jdkRedisTemplate;
+
     @Autowired
-    private RedisTemplate redisTemplate;
+    public ShopController(RedisTemplate<String,Object> jdkRedisTemplate) {
+        this.jdkRedisTemplate = jdkRedisTemplate;
+    }
 
     /**
-     * 设置店铺状态
-     * @param status
-     * @return
+     *
+     * @param status 0为打烊，1为营业
+     * @return Result.success()
      */
     @PutMapping("/{status}")
     @ApiOperation("设置店铺的营业状态")
-    public Result setStatus(@PathVariable Integer status){
+    public Result<Object> setStatus(@PathVariable Integer status){
         log.info("设置店铺的营业状态为：{}",status == 1 ? "营业中": "打烊中");
-        redisTemplate.opsForValue().set(KEY,status);
+        jdkRedisTemplate.opsForValue().set(KEY,status);
         return Result.success();
     }
 
     /**
      * 查询店铺状态
-     * @return
+     * @return Result.success(status)
      */
     @GetMapping("/status")
     @ApiOperation("查询店铺状态")
     public Result<Integer> getStatus(){
-        Integer status = (Integer)redisTemplate.opsForValue().get(KEY);
-        log.info("获取到店铺的营业状态为：{}",status == 1 ? "营业中" : "打烊中");
+        Integer status = (Integer)jdkRedisTemplate.opsForValue().get(KEY);
+        if(status != null){
+            log.info("获取到店铺的营业状态为：{}",status == 1 ? "营业中" : "打烊中");
+        }
         return  Result.success(status);
     }
 

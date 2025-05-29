@@ -13,6 +13,7 @@ import org.apache.ibatis.annotations.Update;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Mapper
 public interface OrderMapper {
@@ -37,6 +38,13 @@ public interface OrderMapper {
      */
     @Select("select * from orders where id = #{id}")
     Orders queryOrderById(Long id);
+
+    /**
+     * 根据id集合批量查询订单
+     * @param idSet
+     * @return
+     */
+    List<Orders> queryOrdersByIdSet(Set<Long> idSet);
 
     /**
      * 更新订单

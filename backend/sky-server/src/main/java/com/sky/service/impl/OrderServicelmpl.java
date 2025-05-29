@@ -24,9 +24,14 @@ import com.sky.vo.OrderSubmitVO;
 import com.sky.vo.OrderVO;
 import com.sky.websocket.WebSocketServer;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import org.apache.poi.ss.formula.functions.T;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SetOperations;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,17 +45,24 @@ import java.util.stream.Collectors;
 
 @Service
 public class OrderServicelmpl implements OrderService {
-    @Autowired
-    private AddressBookMapper addressBookMapper;
-    @Autowired
-    private ShoppingCartMapper shoppingCartMapper;
-    @Autowired
-    private OrderMapper orderMapper;
-    @Autowired
-    private OrderDetailMapper orderDetailMapper;
-    @Autowired
-    private WebSocketServer webSocketServer;
 
+    private final AddressBookMapper addressBookMapper;
+    private final ShoppingCartMapper shoppingCartMapper;
+    private final OrderMapper orderMapper;
+    private final OrderDetailMapper orderDetailMapper;
+    private final WebSocketServer webSocketServer;
+    private final RedisTemplate<String,String> myStringRedisTemplate;
+
+    @Autowired
+    public OrderServicelmpl(AddressBookMapper addressBookMapper, ShoppingCartMapper shoppingCartMapper, OrderMapper orderMapper, OrderDetailMapper orderDetailMapper, WebSocketServer webSocketServer, RedisTemplate<String,String> myStringRedisTemplate) {
+        this.addressBookMapper = addressBookMapper;
+        this.shoppingCartMapper = shoppingCartMapper;
+        this.orderMapper = orderMapper;
+        this.orderDetailMapper = orderDetailMapper;
+        this.webSocketServer = webSocketServer;
+        this.myStringRedisTemplate = myStringRedisTemplate;
+
+    }
     /**
      * 提交订单
      * @param ordersSubmitDTO
@@ -59,15 +71,20 @@ public class OrderServicelmpl implements OrderService {
     @Transactional
     public OrderSubmitVO submitOrder(OrdersSubmitDTO ordersSubmitDTO) {
         AddressBook addressBook = addressBookMapper.getById(ordersSubmitDTO.getAddressBookId());
-        //根据id获取用户默认地址
         if (addressBook == null) {
             throw new AddressBookBusinessException(MessageConstant.ADDRESS_BOOK_IS_NULL);
         }
+        //对地址进行拼凑处理
+        String address = addressBook.getProvinceName() + " "
+                + addressBook.getCityName() + " "
+                + addressBook.getDistrictName() + " "
+                + addressBook.getDetail();
         ShoppingCart shoppingCart = new ShoppingCart();
         Long userId = BaseContext.getCurrentId();
         shoppingCart.setUserId(userId);
+
         List<ShoppingCart> list = shoppingCartMapper.list(shoppingCart);
-        if (list == null || list.size() == 0) {
+        if (list == null || list.isEmpty()) {
             throw new AddressBookBusinessException(MessageConstant.SHOPPING_CART_IS_NULL);
         }
 
@@ -79,6 +96,7 @@ public class OrderServicelmpl implements OrderService {
         orders.setNumber(String.valueOf(System.currentTimeMillis()));
         orders.setPhone(addressBook.getPhone());
         orders.setConsignee(addressBook.getConsignee());
+        orders.setAddress(address);
         orders.setUserId(userId);
         orderMapper.insert(orders);
         List<OrderDetail> orderDetailList = new ArrayList<>();
@@ -225,7 +243,12 @@ public class OrderServicelmpl implements OrderService {
         order.setPayMethod(ordersPaymentDTO.getPayMethod());
         order.setCheckoutTime(LocalDateTime.now());
         orderMapper.update(order);
-        Map map = new HashMap();
+        //向redis中添加下单时间，便于取消许久未处理的订单
+        long delay = 24*60*60;
+        //将过期时间转化为秒的整数
+        long seconds = System.currentTimeMillis()/1000+delay;
+        myStringRedisTemplate.opsForZSet().add("order:delay:queue", String.valueOf(order.getId()),seconds);
+        Map<String,Object> map = new HashMap<>();
         map.put("type", 1);
         map.put("orderId", order.getId());
         map.put("content","订单号：" + orderNumber);

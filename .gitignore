@@ -1,5 +1,6 @@
 .env
 .env.dev
+compose.dev.yaml
 **/.idea
 *.iml
 **/.vscode

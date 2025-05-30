@@ -6,7 +6,36 @@ on:
       - main
 
 jobs:
+  filter_changes:
+    runs-on: ubuntu-latest
+
+    outputs:
+      backend_changed: ${{ steps.filter.outputs.backend }}
+      frontend_changed: ${{ steps.filter.outputs.frontend }}
+      mysql_changed: ${{ steps.filter.outputs.mysql }}
+      redis_changed: ${{ steps.filter.outputs.redis }}
+      compose_changed: ${{ steps.filter.outputs.compose }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - id: filter
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+            mysql:
+              - 'mysql/**'
+            redis:
+              - 'redis/**'
+            compose:
+              - 'compose.yaml'
+              - 'compose.prod.yaml'
+
   build-and-push:
+    needs: filter_changes
     runs-on: ubuntu-latest
 
     steps:
@@ -16,16 +45,28 @@ jobs:
       - name: Log in to Aliyun ACR
         run: echo "${{ secrets.ALIYUN_PASSWORD }}" | docker login ${{ secrets.ALIYUN_REGISTRY }} -u ${{ secrets.ALIYUN_USERNAME }} --password-stdin
 
-      - name: Build Docker Image
+      - name: Build&Push frontend
+        if: ${{ needs.filter_changes.outputs.frontend_changed == 'true' }}
         run: |
-          export COMPOSE_BAKE=true
-          docker compose -f compose.yaml -f compose.prod.yaml build
-
-      - name: Push Docker Image
-        run: |
+          docker build -t ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:frontend ./frontend
           docker push ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:frontend
+
+      - name: Build&Push backend
+        if: ${{ needs.filter_changes.outputs.backend_changed == 'true' }}
+        run: |
+          docker build -t ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:backend ./backend
           docker push ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:backend
+
+      - name: Build&Push mysql
+        if: ${{ needs.filter_changes.outputs.mysql_changed == 'true' }}
+        run: |
+          docker build -t ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:mysql ./mysql
           docker push ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:mysql
+
+      - name: Build&Push redis
+        if: ${{ needs.filter_changes.outputs.redis_changed == 'true' }}
+        run: |
+          docker build -t ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:redis ./redis
           docker push ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:redis
 
   deploy:

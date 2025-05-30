@@ -2,6 +2,8 @@
 .env.example
 .gitignore
 compose.yaml
+compose.dev.yaml
+compose.prod.yaml
 **/dockerfile
 **/.idea
 *.iml

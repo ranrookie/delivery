@@ -22,10 +22,10 @@ jobs:
 
       - name: Push Docker Image
         run: |
-          docker push ${{ secrets.ALIYUN_REGISTRY }}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:frontend
-          docker push ${{ secrets.ALIYUN_REGISTRY }}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:backend
-          docker push ${{ secrets.ALIYUN_REGISTRY }}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:mysql
-          docker push ${{ secrets.ALIYUN_REGISTRY }}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:redis
+          docker push ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:frontend
+          docker push ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:backend
+          docker push ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:mysql
+          docker push ${{secrets.ALIYUN_REGISTRY}}/${{secrets.NAMESPACE}}/${{secrets.REPOSITORY}}:redis
 
   deploy:
     needs: build-and-push

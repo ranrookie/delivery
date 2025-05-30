@@ -14,7 +14,6 @@ jobs:
       frontend_changed: ${{ steps.filter.outputs.frontend }}
       mysql_changed: ${{ steps.filter.outputs.mysql }}
       redis_changed: ${{ steps.filter.outputs.redis }}
-      compose_changed: ${{ steps.filter.outputs.compose }}
 
     steps:
       - uses: actions/checkout@v3
@@ -83,6 +82,7 @@ jobs:
         run: |
           ssh -i private_key -o StrictHostKeyChecking=no -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd delivery
+            git pull
             docker compose pull
             docker compose -f compose.yaml -f compose.prod.yaml --env-file .env up -d --no-build
             docker container prune -f

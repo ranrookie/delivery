@@ -1,6 +1,6 @@
 services:
   mysql:
-    build: ./sql
+    build: ./mysql
     image: crpi-bgqknwkbk03z351x.cn-beijing.personal.cr.aliyuncs.com/shr888666/mydelivery:mysql
     container_name: mysql_container
     restart: always

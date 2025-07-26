@@ -58,7 +58,7 @@ public interface OrderMapper {
      * @return
      */
     @Select("select * from orders where number = #{orderNumber}")
-    Orders queryOrderByNumber(String orderNumber);
+    Orders queryOrderByNumber(Long orderNumber);
 
     /**
      * 根据状态统计订单

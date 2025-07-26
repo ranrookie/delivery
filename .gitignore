@@ -2,7 +2,6 @@
 .env.dev
 compose.dev.yaml
 **/.idea
-*.iml
 **/.vscode
 **/target
 **/application-dev.yml

@@ -12,12 +12,14 @@ import com.sky.entity.Orders;
 import com.sky.entity.ShoppingCart;
 import com.sky.exception.AddressBookBusinessException;
 import com.sky.exception.OrderBusinessException;
+import com.sky.exception.RepeatablePaymentException;
 import com.sky.mapper.AddressBookMapper;
 import com.sky.mapper.OrderDetailMapper;
 import com.sky.mapper.OrderMapper;
 import com.sky.mapper.ShoppingCartMapper;
 import com.sky.result.PageResult;
 import com.sky.service.OrderService;
+import com.sky.utils.SnowflakeIdUtil;
 import com.sky.vo.OrderOverViewVO;
 import com.sky.vo.OrderReportVO;
 import com.sky.vo.OrderSubmitVO;
@@ -41,6 +43,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,15 +55,16 @@ public class OrderServicelmpl implements OrderService {
     private final OrderDetailMapper orderDetailMapper;
     private final WebSocketServer webSocketServer;
     private final RedisTemplate<String,String> myStringRedisTemplate;
-
+    private final SnowflakeIdUtil snowflakeIdUtil;
     @Autowired
-    public OrderServicelmpl(AddressBookMapper addressBookMapper, ShoppingCartMapper shoppingCartMapper, OrderMapper orderMapper, OrderDetailMapper orderDetailMapper, WebSocketServer webSocketServer, RedisTemplate<String,String> myStringRedisTemplate) {
+    public OrderServicelmpl(AddressBookMapper addressBookMapper, ShoppingCartMapper shoppingCartMapper, OrderMapper orderMapper, OrderDetailMapper orderDetailMapper, WebSocketServer webSocketServer, RedisTemplate<String,String> myStringRedisTemplate, SnowflakeIdUtil snowflakeIdUtil) {
         this.addressBookMapper = addressBookMapper;
         this.shoppingCartMapper = shoppingCartMapper;
         this.orderMapper = orderMapper;
         this.orderDetailMapper = orderDetailMapper;
         this.webSocketServer = webSocketServer;
         this.myStringRedisTemplate = myStringRedisTemplate;
+        this.snowflakeIdUtil = snowflakeIdUtil;
 
     }
     /**
@@ -90,10 +94,12 @@ public class OrderServicelmpl implements OrderService {
 
         Orders orders = new Orders();
         BeanUtils.copyProperties(ordersSubmitDTO, orders);
+        //生成一系列雪花IdBundle
+        SnowflakeIdUtil.IdBundle idBundle = snowflakeIdUtil.nextIdBundle();
         orders.setOrderTime(LocalDateTime.now());
         orders.setPayStatus(Orders.UN_PAID);
         orders.setStatus(Orders.PENDING_PAYMENT);
-        orders.setNumber(String.valueOf(System.currentTimeMillis()));
+        orders.setNumber(idBundle.getId());
         orders.setPhone(addressBook.getPhone());
         orders.setConsignee(addressBook.getConsignee());
         orders.setAddress(address);
@@ -109,7 +115,7 @@ public class OrderServicelmpl implements OrderService {
         orderDetailMapper.insertBatch(orderDetailList);
         shoppingCartMapper.cleanShoppingCart(userId);
         OrderSubmitVO orderSubmitVO = new OrderSubmitVO();
-        orderSubmitVO.setOrderNumber(orders.getNumber());
+        orderSubmitVO.setOrderNumber(idBundle.getOrderId());
         orderSubmitVO.setOrderAmount(orders.getAmount());
         orderSubmitVO.setId(orders.getId());
         orderSubmitVO.setOrderTime(orders.getOrderTime());
@@ -237,7 +243,11 @@ public class OrderServicelmpl implements OrderService {
     @Override
     public void payOrder(OrdersPaymentDTO ordersPaymentDTO) {
         String orderNumber = ordersPaymentDTO.getOrderNumber();
-        Orders order = orderMapper.queryOrderByNumber(orderNumber);
+        Boolean lock = myStringRedisTemplate.opsForValue().setIfAbsent(orderNumber,"1",30,TimeUnit.SECONDS);
+        if(Boolean.FALSE.equals(lock)) {
+            throw new RepeatablePaymentException("不可重复支付同一订单");
+        }
+        Orders order = orderMapper.queryOrderByNumber(Long.valueOf(orderNumber.substring(3)));
         order.setStatus(Orders.TO_BE_CONFIRMED);
         order.setPayStatus(Orders.PAID);
         order.setPayMethod(ordersPaymentDTO.getPayMethod());

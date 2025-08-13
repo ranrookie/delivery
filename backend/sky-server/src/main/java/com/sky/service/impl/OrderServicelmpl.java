@@ -10,6 +10,8 @@ import com.sky.entity.AddressBook;
 import com.sky.entity.OrderDetail;
 import com.sky.entity.Orders;
 import com.sky.entity.ShoppingCart;
+import com.sky.enumeration.OrderEvent;
+import com.sky.enumeration.OrderStatus;
 import com.sky.exception.AddressBookBusinessException;
 import com.sky.exception.OrderBusinessException;
 import com.sky.exception.RepeatablePaymentException;
@@ -19,6 +21,7 @@ import com.sky.mapper.OrderMapper;
 import com.sky.mapper.ShoppingCartMapper;
 import com.sky.result.PageResult;
 import com.sky.service.OrderService;
+import com.sky.service.OrderStatusService;
 import com.sky.utils.SnowflakeIdUtil;
 import com.sky.vo.OrderOverViewVO;
 import com.sky.vo.OrderReportVO;
@@ -27,6 +30,8 @@ import com.sky.vo.OrderVO;
 import com.sky.websocket.WebSocketServer;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import org.apache.poi.ss.formula.functions.T;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
@@ -34,8 +39,14 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.statemachine.StateMachine;
+import org.springframework.statemachine.config.StateMachineFactory;
+import org.springframework.statemachine.support.DefaultStateMachineContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationAdapter;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -49,6 +60,7 @@ import java.util.stream.Collectors;
 @Service
 public class OrderServicelmpl implements OrderService {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderServicelmpl.class);
     private final AddressBookMapper addressBookMapper;
     private final ShoppingCartMapper shoppingCartMapper;
     private final OrderMapper orderMapper;
@@ -56,8 +68,9 @@ public class OrderServicelmpl implements OrderService {
     private final WebSocketServer webSocketServer;
     private final RedisTemplate<String,String> myStringRedisTemplate;
     private final SnowflakeIdUtil snowflakeIdUtil;
+    private final OrderStatusService orderStatusService;
     @Autowired
-    public OrderServicelmpl(AddressBookMapper addressBookMapper, ShoppingCartMapper shoppingCartMapper, OrderMapper orderMapper, OrderDetailMapper orderDetailMapper, WebSocketServer webSocketServer, RedisTemplate<String,String> myStringRedisTemplate, SnowflakeIdUtil snowflakeIdUtil) {
+    public OrderServicelmpl(OrderStatusService orderStatusService,AddressBookMapper addressBookMapper, ShoppingCartMapper shoppingCartMapper, OrderMapper orderMapper, OrderDetailMapper orderDetailMapper, WebSocketServer webSocketServer, RedisTemplate<String,String> myStringRedisTemplate, SnowflakeIdUtil snowflakeIdUtil, StateMachineFactory<OrderStatus, OrderEvent> stateMachineFactory) {
         this.addressBookMapper = addressBookMapper;
         this.shoppingCartMapper = shoppingCartMapper;
         this.orderMapper = orderMapper;
@@ -65,7 +78,7 @@ public class OrderServicelmpl implements OrderService {
         this.webSocketServer = webSocketServer;
         this.myStringRedisTemplate = myStringRedisTemplate;
         this.snowflakeIdUtil = snowflakeIdUtil;
-
+        this.orderStatusService = orderStatusService;
     }
     /**
      * 提交订单
@@ -166,7 +179,6 @@ public class OrderServicelmpl implements OrderService {
     @Override
     public void cancelOrder(Long id) {
         Orders ordersDB = orderMapper.queryOrderById(id);
-
         // 校验订单是否存在
         if (ordersDB == null) {
             throw new OrderBusinessException(MessageConstant.ORDER_NOT_FOUND);
@@ -177,20 +189,18 @@ public class OrderServicelmpl implements OrderService {
             throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
         }
 
-        Orders orders = new Orders();
-        orders.setId(ordersDB.getId());
-
         // 订单处于待接单状态下取消，需要进行退款
         if (ordersDB.getStatus().equals(Orders.TO_BE_CONFIRMED)) {
             //支付状态修改为 退款
-            orders.setPayStatus(Orders.REFUND);
+            ordersDB.setPayStatus(Orders.REFUND);
         }
-
         // 更新订单状态、取消原因、取消时间
-        orders.setStatus(Orders.CANCELLED);
+        Orders orders = new Orders();
+        orders.setId(ordersDB.getId());
+        orders.setVersion(ordersDB.getVersion());
         orders.setCancelReason("用户取消");
         orders.setCancelTime(LocalDateTime.now());
-        orderMapper.update(orders);
+        orderStatusService.handleEvent(orders,OrderEvent.CANCEL);
     }
 
     /**
@@ -241,29 +251,37 @@ public class OrderServicelmpl implements OrderService {
      * @param ordersPaymentDTO
      */
     @Override
+    @Transactional
     public void payOrder(OrdersPaymentDTO ordersPaymentDTO) {
         String orderNumber = ordersPaymentDTO.getOrderNumber();
-        Boolean lock = myStringRedisTemplate.opsForValue().setIfAbsent(orderNumber,"1",30,TimeUnit.SECONDS);
+        Boolean lock = myStringRedisTemplate.opsForValue().setIfAbsent(orderNumber,"1",10,TimeUnit.SECONDS);
         if(Boolean.FALSE.equals(lock)) {
             throw new RepeatablePaymentException("不可重复支付同一订单");
         }
         Orders order = orderMapper.queryOrderByNumber(Long.valueOf(orderNumber.substring(3)));
-        order.setStatus(Orders.TO_BE_CONFIRMED);
-        order.setPayStatus(Orders.PAID);
         order.setPayMethod(ordersPaymentDTO.getPayMethod());
         order.setCheckoutTime(LocalDateTime.now());
-        orderMapper.update(order);
+        order.setVersion(order.getVersion());
+        //状态机转换订单状态，并通过乐观锁安全更新订单
+        orderStatusService.handleEvent(order,OrderEvent.PAY);
         //向redis中添加下单时间，便于取消许久未处理的订单
         long delay = 24*60*60;
         //将过期时间转化为秒的整数
         long seconds = System.currentTimeMillis()/1000+delay;
         myStringRedisTemplate.opsForZSet().add("order:delay:queue", String.valueOf(order.getId()),seconds);
-        Map<String,Object> map = new HashMap<>();
-        map.put("type", 1);
-        map.put("orderId", order.getId());
-        map.put("content","订单号：" + orderNumber);
-        String json = JSON.toJSONString(map);
-        webSocketServer.sendToAllClient(json);
+        // 注册事务提交后执行的 WebSocket 推送
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                Map<String, Object> map = new HashMap<>();
+                map.put("type", 1);
+                map.put("orderId", order.getId());
+                map.put("content", "订单号：" + orderNumber);
+                String json = JSON.toJSONString(map);
+                webSocketServer.sendToAllClient(json);
+            }
+        });
+
     }
 
     /**
@@ -285,10 +303,12 @@ public class OrderServicelmpl implements OrderService {
      */
     @Override
     public void confirmOrder(OrdersConfirmDTO ordersConfirmDTO) {
-        Orders orders =  new Orders();
-        orders.setId(ordersConfirmDTO.getId());
-        orders.setStatus(Orders.CONFIRMED);
-        orderMapper.update(orders);
+        Long id = ordersConfirmDTO.getId();
+        Orders orderDB = orderMapper.queryOrderById(id);
+        Orders orders = new Orders();
+        orders.setId(id);
+        orders.setVersion(orderDB.getVersion());
+        orderStatusService.handleEvent(orders,OrderEvent.ACCEPT);
     }
 
     /**
@@ -306,13 +326,13 @@ public class OrderServicelmpl implements OrderService {
         // 拒单需要退款，根据订单id更新订单状态、拒单原因、取消时间
         Orders orders = new Orders();
         orders.setId(ordersDB.getId());
-        orders.setStatus(Orders.CANCELLED);
+        orders.setVersion(ordersDB.getVersion());
         orders.setRejectionReason(ordersRejectionDTO.getRejectionReason());
         orders.setCancelTime(LocalDateTime.now());
         if (payStatus == Orders.PAID) {
             orders.setPayStatus(Orders.REFUND);
         }
-        orderMapper.update(orders);
+        orderStatusService.handleEvent(orders,OrderEvent.CANCEL);
     }
     /**
      * 取消订单
@@ -322,7 +342,6 @@ public class OrderServicelmpl implements OrderService {
     public void cancel(OrdersCancelDTO ordersCancelDTO){
         // 根据id查询订单
         Orders ordersDB = orderMapper.queryOrderById(ordersCancelDTO.getId());
-
         //支付状态
         Integer payStatus = ordersDB.getPayStatus();
         if (ordersDB.getStatus() >= Orders.COMPLETED) {
@@ -331,14 +350,14 @@ public class OrderServicelmpl implements OrderService {
         // 管理端取消订单需要退款，根据订单id更新订单状态、取消原因、取消时间
         Orders orders = new Orders();
         orders.setId(ordersCancelDTO.getId());
-        orders.setStatus(Orders.CANCELLED);
+        orders.setVersion(ordersDB.getVersion());
         orders.setCancelReason(ordersCancelDTO.getCancelReason());
         orders.setCancelTime(LocalDateTime.now());
         if (payStatus == 1) {
             //用户已支付，需要退款
             orders.setPayStatus(Orders.REFUND);
         }
-        orderMapper.update(orders);
+        orderStatusService.handleEvent(orders,OrderEvent.CANCEL);
     }
     /**
      * 派送订单
@@ -357,8 +376,8 @@ public class OrderServicelmpl implements OrderService {
         Orders orders = new Orders();
         orders.setId(ordersDB.getId());
         // 更新订单状态,状态转为派送中
-        orders.setStatus(Orders.DELIVERY_IN_PROGRESS);
-        orderMapper.update(orders);
+        orders.setVersion(ordersDB.getVersion());
+        orderStatusService.handleEvent(orders,OrderEvent.DELIVER);
     }
     /**
      * 完成订单
@@ -376,10 +395,9 @@ public class OrderServicelmpl implements OrderService {
         Orders orders = new Orders();
         orders.setId(ordersDB.getId());
         // 更新订单状态,状态转为完成
-        orders.setStatus(Orders.COMPLETED);
+        orders.setVersion(ordersDB.getVersion());
         orders.setDeliveryTime(LocalDateTime.now());
-
-        orderMapper.update(orders);
+        orderStatusService.handleEvent(orders,OrderEvent.COMPLETE);
     }
 
     /**
@@ -400,4 +418,9 @@ public class OrderServicelmpl implements OrderService {
         String json = JSON.toJSONString(map);
         webSocketServer.sendToAllClient(json);
     }
+
+
+
+
+
 }

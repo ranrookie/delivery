@@ -50,7 +50,7 @@ public interface OrderMapper {
      * 更新订单
      * @param orders
      */
-    void update(Orders orders);
+    int update(Orders orders);
 
     /**
      * 根据订单号查询订单
@@ -98,4 +98,14 @@ public interface OrderMapper {
      * @return
      */
     List<GoodsSalesDTO> getTop10(LocalDateTime begin,LocalDateTime end);
+
+    /**
+     *获取版本号
+     * @param orderId
+     * @return
+     */
+    @Select("select version from orders where id = #{orderId}")
+    int getVersion(Long orderId);
+    @Update("update orders set version = version+1 where version = #{version} and id = #{orderId}")
+    int setVersion(Long orderId, Integer version);
 }

@@ -8,6 +8,7 @@ import com.sky.mapper.OrderMapper;
 import com.sky.service.OrderStatusService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.statemachine.StateMachine;
 import org.springframework.statemachine.config.StateMachineFactory;
 import org.springframework.statemachine.support.DefaultStateMachineContext;
@@ -40,11 +41,13 @@ public class OrderStatusServiceImpl implements OrderStatusService {
             });
             stateMachine.start();
             // 发事件
-            boolean result = stateMachine.sendEvent(event);
+            boolean result = stateMachine.sendEvent(MessageBuilder
+                    .withPayload(event)
+                    .setHeader("orderNumber", orders.getNumber()) // 关键点：设置消息头
+                    .build());
             if (result) {
                 OrderStatus newStatus = stateMachine.getState().getId();
                 orders.setStatus(newStatus.getCode());
-                int oldVersion = orders.getVersion();
                 int row = orderMapper.update(orders);
                 if(row!=1) {
                     throw new UpdateOrderException("当前订单已被修改，请稍后重试");
@@ -53,7 +56,8 @@ public class OrderStatusServiceImpl implements OrderStatusService {
                 log.warn("状态机处理失败，订单ID: {}, 当前状态: {}, 事件: {}", orders.getId(), orderStatus, event);
                 throw new RuntimeException("订单状态转换失败");
             }
-        }finally {
+        }
+        finally {
             stateMachine.stop();
         }
     }

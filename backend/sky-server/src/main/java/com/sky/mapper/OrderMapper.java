@@ -5,10 +5,7 @@ import com.sky.dto.GoodsSalesDTO;
 import com.sky.dto.OrdersPageQueryDTO;
 import com.sky.entity.Orders;
 import com.sky.vo.OrderOverViewVO;
-import org.apache.ibatis.annotations.Delete;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -44,7 +41,7 @@ public interface OrderMapper {
      * @param idSet
      * @return
      */
-    List<Orders> queryOrdersByIdSet(Set<Long> idSet);
+    List<Orders> queryOrdersByIdSetAndStatus(@Param("idSet") Set<Long> idSet, @Param("status") Integer status);
 
     /**
      * 更新订单
@@ -75,7 +72,7 @@ public interface OrderMapper {
      * @return
      */
     @Select("select * from orders where status = #{status} and order_time < #{time}")
-    List<Orders> geytByStatusAndTime(Integer status, LocalDateTime time);
+    List<Orders> getByStatusAndTime(Integer status, LocalDateTime time);
 
     /**
      * 根据动态调节统计营业额
@@ -99,13 +96,4 @@ public interface OrderMapper {
      */
     List<GoodsSalesDTO> getTop10(LocalDateTime begin,LocalDateTime end);
 
-    /**
-     *获取版本号
-     * @param orderId
-     * @return
-     */
-    @Select("select version from orders where id = #{orderId}")
-    int getVersion(Long orderId);
-    @Update("update orders set version = version+1 where version = #{version} and id = #{orderId}")
-    int setVersion(Long orderId, Integer version);
 }

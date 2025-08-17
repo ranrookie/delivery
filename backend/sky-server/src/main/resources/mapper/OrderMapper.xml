@@ -9,19 +9,20 @@
                             phone, address, user_name, consignee,
                             estimated_delivery_time, delivery_status,
                             delivery_time, pack_amount, tableware_number,
-                            tableware_status)
+                            tableware_status,version)
         values (#{number},#{status},#{userId},#{addressBookId},#{orderTime}
                ,#{checkoutTime},#{payMethod},#{payStatus},#{amount},#{remark}
                ,#{phone},#{address},#{userName},#{consignee},#{estimatedDeliveryTime}
                ,#{deliveryStatus},#{deliveryTime},#{packAmount},#{tablewareNumber}
-               ,#{tablewareStatus})
+               ,#{tablewareStatus},#{version})
     </insert>
 
-    <select id="queryOrdersByIdSet" resultType="com.sky.entity.Orders">
+    <select id="queryOrdersByIdSetAndStatus" resultType="com.sky.entity.Orders">
         select * from orders where id in
         <foreach collection="idSet" item="id" open="(" close=")" separator=",">
             #{id}
         </foreach>
+        and status = #{status}
     </select>
 
     <select id="pageQuery" resultType="com.sky.entity.Orders">
@@ -68,7 +69,7 @@
                     checkout_time = #{checkoutTime},
                 </if>
                 <if test="rejectionReason != null">
-                    rejection_reason = #{rejectionReason}
+                    rejection_reason = #{rejectionReason},
                 </if>
                 version = version + 1
             </trim>

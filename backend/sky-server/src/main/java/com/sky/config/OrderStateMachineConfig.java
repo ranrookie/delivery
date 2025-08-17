@@ -58,11 +58,11 @@ public class OrderStateMachineConfig extends StateMachineConfigurerAdapter<Order
     }
     private Action<OrderStatus, OrderEvent> logStateChange() {
         return context -> {
-            String orderId = String.valueOf(context.getMessageHeader("orderId"));
+            String orderNumber = String.valueOf(context.getMessageHeader("orderNumber"));
             OrderStatus source = context.getSource() != null ? context.getSource().getId() : null;
             OrderStatus target = context.getTarget() != null ? context.getTarget().getId() : null;
             OrderEvent event = context.getEvent();
-            log.info("【状态机变更】订单ID：{} | 事件：{} | 状态：{} → {}", orderId, event, source, target);
-        };
-    }
+            log.info("【状态机变更】订单Number：{} | 事件：{} | 状态：{} → {}", orderNumber, event, source, target);
+        };    }
+
 }

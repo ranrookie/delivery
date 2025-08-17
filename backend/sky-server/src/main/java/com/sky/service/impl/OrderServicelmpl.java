@@ -20,6 +20,7 @@ import com.sky.mapper.OrderDetailMapper;
 import com.sky.mapper.OrderMapper;
 import com.sky.mapper.ShoppingCartMapper;
 import com.sky.result.PageResult;
+import com.sky.result.Result;
 import com.sky.service.OrderService;
 import com.sky.service.OrderStatusService;
 import com.sky.utils.SnowflakeIdUtil;
@@ -50,10 +51,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -116,6 +114,7 @@ public class OrderServicelmpl implements OrderService {
         orders.setPhone(addressBook.getPhone());
         orders.setConsignee(addressBook.getConsignee());
         orders.setAddress(address);
+        orders.setVersion(0);
         orders.setUserId(userId);
         orderMapper.insert(orders);
         List<OrderDetail> orderDetailList = new ArrayList<>();
@@ -197,6 +196,9 @@ public class OrderServicelmpl implements OrderService {
         // 更新订单状态、取消原因、取消时间
         Orders orders = new Orders();
         orders.setId(ordersDB.getId());
+        orders.setNumber(ordersDB.getNumber());
+        orders.setPayStatus(ordersDB.getPayStatus());
+        orders.setStatus(ordersDB.getStatus());
         orders.setVersion(ordersDB.getVersion());
         orders.setCancelReason("用户取消");
         orders.setCancelTime(LocalDateTime.now());
@@ -254,9 +256,11 @@ public class OrderServicelmpl implements OrderService {
     @Transactional
     public void payOrder(OrdersPaymentDTO ordersPaymentDTO) {
         String orderNumber = ordersPaymentDTO.getOrderNumber();
-        Boolean lock = myStringRedisTemplate.opsForValue().setIfAbsent(orderNumber,"1",10,TimeUnit.SECONDS);
+        String lockKey = "order:pay:lock:" + orderNumber;
+        Boolean lock = myStringRedisTemplate.opsForValue().setIfAbsent(lockKey,"1",10,TimeUnit.SECONDS);
         if(Boolean.FALSE.equals(lock)) {
-            throw new RepeatablePaymentException("不可重复支付同一订单");
+            log.warn("【防抖拦截】重复提交操作被拦截, userId={}, orderNumber={}", BaseContext.getCurrentId(), orderNumber);
+            return;
         }
         Orders order = orderMapper.queryOrderByNumber(Long.valueOf(orderNumber.substring(3)));
         order.setPayMethod(ordersPaymentDTO.getPayMethod());
@@ -308,6 +312,7 @@ public class OrderServicelmpl implements OrderService {
         Orders orders = new Orders();
         orders.setId(id);
         orders.setVersion(orderDB.getVersion());
+        orders.setStatus(orderDB.getStatus());
         orderStatusService.handleEvent(orders,OrderEvent.ACCEPT);
     }
 
@@ -326,10 +331,11 @@ public class OrderServicelmpl implements OrderService {
         // 拒单需要退款，根据订单id更新订单状态、拒单原因、取消时间
         Orders orders = new Orders();
         orders.setId(ordersDB.getId());
+        orders.setStatus(ordersDB.getStatus());
         orders.setVersion(ordersDB.getVersion());
         orders.setRejectionReason(ordersRejectionDTO.getRejectionReason());
         orders.setCancelTime(LocalDateTime.now());
-        if (payStatus == Orders.PAID) {
+        if (Objects.equals(payStatus, Orders.PAID)) {
             orders.setPayStatus(Orders.REFUND);
         }
         orderStatusService.handleEvent(orders,OrderEvent.CANCEL);
@@ -337,7 +343,6 @@ public class OrderServicelmpl implements OrderService {
     /**
      * 取消订单
      *
-     * @param ordersCancelDTO
      */
     public void cancel(OrdersCancelDTO ordersCancelDTO){
         // 根据id查询订单
@@ -350,6 +355,7 @@ public class OrderServicelmpl implements OrderService {
         // 管理端取消订单需要退款，根据订单id更新订单状态、取消原因、取消时间
         Orders orders = new Orders();
         orders.setId(ordersCancelDTO.getId());
+        orders.setStatus(ordersDB.getStatus());
         orders.setVersion(ordersDB.getVersion());
         orders.setCancelReason(ordersCancelDTO.getCancelReason());
         orders.setCancelTime(LocalDateTime.now());
@@ -375,6 +381,7 @@ public class OrderServicelmpl implements OrderService {
 
         Orders orders = new Orders();
         orders.setId(ordersDB.getId());
+        orders.setStatus(ordersDB.getStatus());
         // 更新订单状态,状态转为派送中
         orders.setVersion(ordersDB.getVersion());
         orderStatusService.handleEvent(orders,OrderEvent.DELIVER);
@@ -394,6 +401,7 @@ public class OrderServicelmpl implements OrderService {
 
         Orders orders = new Orders();
         orders.setId(ordersDB.getId());
+        orders.setStatus(ordersDB.getStatus());
         // 更新订单状态,状态转为完成
         orders.setVersion(ordersDB.getVersion());
         orders.setDeliveryTime(LocalDateTime.now());

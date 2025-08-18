@@ -41,7 +41,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro #挂载https证书，使用https加密传输
+      - /root/certs/origin.crt:/etc/nginx/ssl/origin.crt:ro
+      - /root/certs/origin.key:/etc/nginx/ssl/origin.key:ro
       - /etc/localtime:/etc/localtime:ro #挂载服务器的时间文件，避免因时区问题产生的bug
     networks:
       - delivery

@@ -18,19 +18,16 @@
 
 ## 目录结构
 
-backend/ # 后端源码与 Dockerfile
-├─ sky-common/ # 公共工具、异常、通用返回封装
-├─ sky-pojo/ # 实体、DTO、VO
-└─ sky-server/ # Spring Boot 主应用（API、业务、配置、任务等）
-frontend/ # Nginx 及静态前端资源
-mysql/ # MySQL 容器与初始化脚本
-redis/ # Redis 容器
-compose.yaml # 主文件开发环境和生产都使用：MySQL + Redis + rabbitMQ
-compose.prod.yaml # 生产环境：后端 + 前端 + MySQL + Redis+ rabbitMQ
-.env.example # 环境变量示例
-
-markdown
-复制代码
+- backend/ # 后端源码与 Dockerfile
+- ├─ sky-common/ # 公共工具、异常、通用返回封装
+- ├─ sky-pojo/ # 实体、DTO、VO
+- └─ sky-server/ # Spring Boot 主应用（API、业务、配置、任务等）
+- frontend/ # Nginx 及静态前端资源
+- mysql/ # MySQL 容器与初始化脚本
+- redis/ # Redis 容器
+- compose.yaml # 开发环境：MySQL + Redis
+- compose.prod.yaml # 生产环境：后端 + 前端 + MySQL + Redis
+- .env.example # 环境变量示例
 
 ## 亮点特性
 

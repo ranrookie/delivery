@@ -34,6 +34,7 @@
 - **状态机驱动的订单流程**：`OrderStateMachineConfig` 定义 PENDING → CONFIRMED → DELIVERY → COMPLETED 等状态及事件。
 - **定时任务自动化**：`OrderTask` 定时取消超时未支付/未接单订单，并模拟订单自动完成。
 - **Redis 缓存与延迟队列**：菜品缓存失效机制、`order:delay:queue` 实现订单到期自动处理。
+- **rabbitMQ异步处理订单状态**：订单下单，取消，完成等，利用MQ异步进行，增加并发能力。
 - **WebSocket 实时推送**：`WebSocketServer` 群发订单状态变化信息。
 - **AOP 元数据填充**：`AutoFillAspect` 自动维护创建/更新时间及操作人。
 - **安全认证**：基于 JWT 的用户/管理员双拦截器；秘钥、数据库等均通过 `.env` 注入。
